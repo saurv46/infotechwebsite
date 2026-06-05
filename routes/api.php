@@ -52,9 +52,8 @@ Route::prefix('job-posts')->group(function () {
 });
 
 Route::prefix('job-responses')->group(function () {
-    Route::post('/add', [JobResponseController::class, 'store']); // POST api/job-responses/add
+    Route::post('/add', [JobResponseController::class, 'store']); 
 
-    // Admin only.
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [JobResponseController::class, 'index']);                   
         Route::get('/{id}', [JobResponseController::class, 'show']);                 
