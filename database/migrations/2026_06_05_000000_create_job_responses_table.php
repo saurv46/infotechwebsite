@@ -14,7 +14,6 @@ return new class extends Migration
             $table->string('full_name');
             $table->string('email');
             $table->string('phone_number');
-            $table->string('address');
             $table->string('cv'); // uploaded CV file path
             $table->boolean('is_active')->default(true);
             $table->softDeletes();

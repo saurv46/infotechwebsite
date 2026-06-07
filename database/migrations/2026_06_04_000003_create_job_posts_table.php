@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('job_title');
             $table->string('role');
             $table->enum('location', ['Onsite', 'Remote', 'Hybrid']);
-            $table->enum('engagement', ['Full-time', 'Part-time', 'Contractual']);
+            $table->enum('engagement', ['Full time', 'Part-time', 'Contractual']);
             $table->longText('job_description'); // rich text / editor content
             $table->boolean('is_active')->default(true);
             $table->softDeletes();

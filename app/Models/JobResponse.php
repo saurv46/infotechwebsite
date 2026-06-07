@@ -15,7 +15,6 @@ class JobResponse extends Model
         'full_name',
         'email',
         'phone_number',
-        'address',
         'cv',
         'is_active',
     ];

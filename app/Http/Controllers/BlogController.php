@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class BlogController extends Controller
@@ -84,6 +85,7 @@ public function updateStatus(Request $request, $id)
 
 public function show($id)
 {
+
     try {
 
         // withTrashed() so a single blog can be viewed even if soft-deleted.
@@ -114,24 +116,14 @@ public function show($id)
 
 
 
-public function showbyid($id)
+public function showBySlug($slug)
 {
+
     try {
 
-        // The incoming id is encrypted — decrypt it back to the numeric id.
-        $realId = $this->decryptId($id);
-
-        if ($realId === null) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Blog not found'
-            ], 404);
-        }
-
         // withTrashed() so a single blog can be viewed even if soft-deleted.
-        $blog = Blog::withTrashed()->findOrFail($realId);
+        $blog = Blog::withTrashed()->where('blog_slug', $slug)->firstOrFail();
 
-        $this->encryptId($blog);
 
         return response()->json([
             'status' => true,
@@ -169,6 +161,12 @@ public function featured(Request $request)
             ->where('is_active', true)
             ->orderBy('created_at', 'desc');
 
+        // The single global "main featured" blog (active, non-deleted), if any.
+        $mainFeatured = Blog::where('is_main_featured', true)
+            ->where('is_active', true)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
         // ?category=Tech → the single latest featured blog in that category.
         if ($category) {
             $blog = $query->where('blog_category', $category)->first();
@@ -177,9 +175,10 @@ public function featured(Request $request)
 
             return response()->json([
                 'status' => true,
-                'message' => 'Featured blog fetched successfully',
+                'message' => 'Featured blog fetched successfullywee',
                 'category' => $category,
-                'data' => $blog
+                // When a main featured blog exists, show it for every category.
+                'data' => $mainFeatured ?: $blog
             ], 200);
         }
 
@@ -189,13 +188,12 @@ public function featured(Request $request)
             ->map(fn ($group) => $group->first())
             ->values();
 
-        $this->encryptIds($blogs);
-
         return response()->json([
             'status' => true,
             'message' => 'Featured blogs fetched successfully',
             'count' => $blogs->count(),
-            'data' => $blogs
+            // When a main featured blog exists, show it instead of the list.
+            'data' => $mainFeatured ?: $blogs
         ], 200);
 
     } catch (\Exception $e) {
@@ -220,8 +218,6 @@ public function byCategory(Request $request)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            $this->encryptIds($blogs);
-
             return response()->json([
                 'status' => true,
                 'message' => 'Blogs fetched successfully',
@@ -234,7 +230,6 @@ public function byCategory(Request $request)
         // No filter → all blogs grouped by category: { "Tech": [...], "News": [...] }
         $blogs = Blog::orderBy('created_at', 'desc')->get();
 
-        $this->encryptIds($blogs);
 
         $grouped = $blogs->groupBy('blog_category');
 
@@ -292,7 +287,12 @@ public function update(Request $request, $id)
         // Partial update: every field is optional, but if sent it must be valid.
         $request->validate([
             'blog_title' => 'sometimes|required|string',
-            'blog_slug' => 'nullable|string|max:255',
+            'blog_slug' => [
+                'sometimes', 'nullable', 'string', 'max:255',
+                // Unique among active blogs only, ignoring this blog itself; a
+                // soft-deleted blog's slug stays reusable.
+                Rule::unique('blogs', 'blog_slug')->whereNull('deleted_at')->ignore($id),
+            ],
             'blog_category' => 'sometimes|required|string',
             'blog_date' => 'nullable|date',
             'blog_description' => 'sometimes|required',
@@ -301,6 +301,7 @@ public function update(Request $request, $id)
             'blog_tags.*' => 'string',
             'is_active' => 'nullable|boolean',
             'is_featured' => 'nullable|boolean',
+            'is_main_featured' => 'nullable|boolean',
             'is_restore' => 'nullable|boolean',
         ]);
 
@@ -329,7 +330,65 @@ public function update(Request $request, $id)
             $blog->is_active = $request->boolean('is_active');
         }
         if ($request->has('is_featured')) {
-            $blog->is_featured = $request->boolean('is_featured');
+            if ($request->boolean('is_featured')) {
+                // Only one featured blog per category. If another blog in the
+                // same category is already featured, don't switch — return that
+                // blog so the frontend can show which one is active.
+                $existing = Blog::where('is_featured', true)
+                    ->where('blog_category', $blog->blog_category)
+                    ->where('id', '!=', $blog->id)
+                    ->first();
+
+                if ($existing) {
+                    return response()->json([
+                        'status'   => false,
+                        // Discriminator so the frontend knows which rule was hit.
+                        'conflict' => 'category_featured',
+                        'category' => $blog->blog_category,
+                        'message'  => "A featured blog already exists for the '{$blog->blog_category}' category. Unset it before featuring another.",
+                        'active_featured' => [
+                            'id'            => $existing->id,
+                            'blog_title'    => $existing->blog_title,
+                            'blog_slug'     => $existing->blog_slug,
+                            'blog_category' => $existing->blog_category,
+                        ],
+                        'data' => $existing,
+                    ], 409);
+                }
+
+                $blog->is_featured = true;
+            } else {
+                $blog->is_featured = false;
+            }
+        }
+        if ($request->has('is_main_featured')) {
+            if ($request->boolean('is_main_featured')) {
+                // Only one blog can be the main featured one. If another already
+                // holds it, don't switch — return the existing main featured blog
+                // so the frontend can show/link to the one that's currently active.
+                $existing = Blog::where('is_main_featured', true)
+                    ->where('id', '!=', $blog->id)
+                    ->first();
+
+                if ($existing) {
+                    return response()->json([
+                        'status'   => false,
+                        // Discriminator so the frontend knows which rule was hit.
+                        'conflict' => 'main_featured',
+                        'message'  => 'A main featured blog already exists. Unset it before featuring another.',
+                        'active_main_featured' => [
+                            'id'         => $existing->id,
+                            'blog_title' => $existing->blog_title,
+                            'blog_slug'  => $existing->blog_slug,
+                        ],
+                        'data' => $existing,
+                    ], 409);
+                }
+
+                $blog->is_main_featured = true;
+            } else {
+                $blog->is_main_featured = false;
+            }
         }
 
         // Restore a soft-deleted blog only when the user explicitly sends is_restore = true.
@@ -415,9 +474,19 @@ public function store(Request $request)
 {
     try {
 
+        // Resolve the slug (use the provided one, else derive from the title)
+        // so the uniqueness check runs against the value we'll actually store.
+        $request->merge([
+            'blog_slug' => $request->blog_slug ?: Str::slug((string) $request->blog_title),
+        ]);
+
         $request->validate([
             'blog_title' => 'required|string',
-            'blog_slug' => 'nullable|string|max:255',
+            'blog_slug' => [
+                'required', 'string', 'max:255',
+                // Unique among active blogs only; a soft-deleted blog's slug is reusable.
+                Rule::unique('blogs', 'blog_slug')->whereNull('deleted_at'),
+            ],
             'blog_category' => 'required|string',
             'blog_date' => 'nullable|date',
             'blog_description' => 'required',
@@ -425,6 +494,9 @@ public function store(Request $request)
             'blog_tags' => 'nullable|array',
             'blog_tags.*' => 'string',
             'is_featured' => 'nullable|boolean',
+        ], [
+            'blog_slug.unique'   => 'This blog slug already exists. Please choose a different one.',
+            'blog_slug.required' => 'A blog slug is required (it could not be generated from the title).',
         ]);
 
         $user = $request->user();

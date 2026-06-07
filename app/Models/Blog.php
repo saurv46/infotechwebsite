@@ -20,6 +20,7 @@ class Blog extends Model
         'blog_tags',
         'is_active',
         'is_featured',
+        'is_main_featured',
     ];
 
     // Optional: type casting
@@ -27,6 +28,7 @@ class Blog extends Model
         'blog_date' => 'date',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
+        'is_main_featured' => 'boolean',
     ];
 
     // Always include a ready-to-use full image URL in API responses.

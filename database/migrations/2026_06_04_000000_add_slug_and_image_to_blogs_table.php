@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('blogs', function (Blueprint $table) {
-            $table->string('blog_slug')->nullable()->after('blog_title');
+            $table->string('blog_slug')->unique()->after('blog_title');
             // Stores the web-accessible path, e.g. "uploads/blogs/xyz.jpg".
             // Nullable at the DB level (existing rows have no image); the
             // upload itself is enforced as required during validation.

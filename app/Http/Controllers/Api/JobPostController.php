@@ -19,7 +19,7 @@ class JobPostController extends Controller
                 'job_title'       => 'required|string|max:255',
                 'role'            => 'required|string|max:255',
                 'location'        => ['required', Rule::in(['Onsite', 'Remote', 'Hybrid'])],
-                'engagement'      => ['required', Rule::in(['Full-time', 'Part-time', 'Contractual'])],
+                'engagement'      => ['required', Rule::in(['Full time', 'Part-time', 'Contractual'])],
                 'job_description' => 'required|string',
                 'is_active'       => 'nullable|boolean',
             ]);

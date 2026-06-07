@@ -126,4 +126,17 @@ return [
 
     'contact_notify_address' => env('MAIL_CONTACT_NOTIFY_ADDRESS', 'Saurav.Nalawade@infotech.works'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Careers / Job Response Notification Address
+    |--------------------------------------------------------------------------
+    |
+    | Job application (career) form submissions are emailed to this inbox.
+    |
+    */
+
+    // 'careers_notify_address' => env('MAIL_CAREERS_NOTIFY_ADDRESS', 'careers@infotech.works'),
+
+    'careers_notify_address' => env('MAIL_CAREERS_NOTIFY_ADDRESS', 'saurv1220@gmail.com'),
+
 ];

@@ -64,4 +64,4 @@ Route::prefix('job-responses')->group(function () {
 
 Route::get('users/by-category', [BlogController::class, 'byCategory']);
 Route::get('/featured', [BlogController::class, 'featured']);
-Route::get('users/blogs/{id}', [BlogController::class, 'showbyid']);
+Route::get('users/blogs/{slug}', [BlogController::class, 'showBySlug']);

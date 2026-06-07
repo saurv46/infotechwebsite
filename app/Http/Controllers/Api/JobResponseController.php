@@ -3,10 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\JobResponseSubmitted;
+use App\Models\JobPost;
 use App\Models\JobResponse;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -21,7 +25,6 @@ class JobResponseController extends Controller
                 'full_name'    => 'required|string|max:255',
                 'email'        => 'required|email|max:255',
                 'phone_number' => 'required|string|max:30',
-                'address'      => 'required|string|max:500',
                 'cv'           => 'required|file|mimes:pdf,doc,docx|max:10240', // max 10MB
                 'is_active'    => 'nullable|boolean',
             ]);
@@ -33,6 +36,19 @@ class JobResponseController extends Controller
             $validated['cv'] = 'uploads/cvs/' . $fileName;
 
             $jobResponse = JobResponse::create($validated);
+
+            // Notify the careers inbox, including the job post name. Wrapped so a
+            // mail failure never blocks the application from being saved.
+            try {
+                $jobTitle = JobPost::withTrashed()
+                    ->whereKey($jobResponse->job_post_id)
+                    ->value('job_title');
+
+                $notifyTo = config('mail.careers_notify_address');
+                Mail::to($notifyTo)->send(new JobResponseSubmitted($jobResponse, $jobTitle));
+            } catch (\Throwable $mailError) {
+                Log::error('Job response mail failed: ' . $mailError->getMessage());
+            }
 
             return response()->json([
                 'status'  => true,
