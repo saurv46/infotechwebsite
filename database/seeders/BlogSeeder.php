@@ -231,6 +231,7 @@ class BlogSeeder extends Seeder
             Blog::updateOrCreate(
                 ['blog_slug' => $blog['blog_slug']],
                 array_merge($blog, [
+                    'author_id' => 1,
                     'is_active' => true,
                     'is_featured' => false,
                     'is_main_featured' => false,

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Blog extends Model
 {
@@ -15,6 +16,7 @@ class Blog extends Model
         'blog_category',
         'blog_date',
         'blog_author',
+        'author_id',
         'blog_description',
         'blog_image',
         'blog_tags',
@@ -36,6 +38,13 @@ class Blog extends Model
 
     public function getBlogImageUrlAttribute(): ?string
     {
-        return $this->blog_image ? asset($this->blog_image) : null;
+        if (! $this->blog_image) {
+            return null;
+        }
+
+        // A stored remote URL is returned as-is; a local path gets the full asset() URL.
+        return Str::startsWith($this->blog_image, ['http://', 'https://'])
+            ? $this->blog_image
+            : asset($this->blog_image);
     }
 }

@@ -53,8 +53,6 @@ class JobPostController extends Controller
     public function index()
     {
         try {
-
-            // Include soft-deleted job posts as well.
             $jobPosts = JobPost::withTrashed()
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -79,8 +77,6 @@ class JobPostController extends Controller
     public function activeJobs()
     {
         try {
-
-            // Only active, non-deleted job posts; newest first.
             $jobPosts = JobPost::where('is_active', true)
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -105,8 +101,6 @@ class JobPostController extends Controller
     public function show($id)
     {
         try {
-
-            // Include soft-deleted job posts as well.
             $jobPost = JobPost::withTrashed()->findOrFail($id);
 
             return response()->json([
@@ -135,15 +129,13 @@ class JobPostController extends Controller
     public function update(Request $request, $id)
     {
         try {
-
-            // Include trashed so a soft-deleted job post can be restored/updated.
             $jobPost = JobPost::withTrashed()->findOrFail($id);
 
             $validated = $request->validate([
                 'job_title'       => 'sometimes|required|string|max:255',
                 'role'            => 'sometimes|required|string|max:255',
                 'location'        => ['sometimes', 'required', Rule::in(['Onsite', 'Remote', 'Hybrid'])],
-                'engagement'      => ['sometimes', 'required', Rule::in(['Full-time', 'Part-time', 'Contractual'])],
+                'engagement'      => ['sometimes', 'required', Rule::in(['Full time', 'Part-time', 'Contractual'])],
                 'job_description' => 'sometimes|required|string',
                 'is_active'       => 'sometimes|boolean',
                 'is_restore'      => 'sometimes|boolean',

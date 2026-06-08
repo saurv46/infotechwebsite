@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\JobPostController;
 use App\Http\Controllers\Api\JobResponseController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\BlogController;
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -17,6 +18,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile', [AuthController::class, 'profile']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/check-auth', [AuthController::class, 'checkAuth']);
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
 });
 
 
@@ -65,3 +67,12 @@ Route::prefix('job-responses')->group(function () {
 Route::get('users/by-category', [BlogController::class, 'byCategory']);
 Route::get('/featured', [BlogController::class, 'featured']);
 Route::get('users/blogs/{slug}', [BlogController::class, 'showBySlug']);
+
+
+Route::middleware('auth:sanctum')->prefix('users')->group(function () {
+    Route::get('/', [UserController::class, 'index']);
+    Route::post('/add', [UserController::class, 'store']);
+    Route::get('/{id}', [UserController::class, 'show']);
+    Route::post('/{id}/update', [UserController::class, 'update']);
+    Route::post('/{id}/delete', [UserController::class, 'destroy']);
+});

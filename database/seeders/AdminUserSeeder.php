@@ -18,6 +18,7 @@ class AdminUserSeeder extends Seeder
             ['email' => 'admin@infotech.com'],
             [
                 'name' => 'Admin',
+                'role' => 'Admin',
                 'password' => 'Password@infotech',
             ]
         );

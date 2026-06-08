@@ -28,8 +28,6 @@ class JobResponseController extends Controller
                 'cv'           => 'required|file|mimes:pdf,doc,docx|max:10240', // max 10MB
                 'is_active'    => 'nullable|boolean',
             ]);
-
-            // Store the uploaded CV under public/uploads/cvs.
             $cv = $request->file('cv');
             $fileName = time() . '_' . Str::random(10) . '.' . $cv->getClientOriginalExtension();
             $cv->move(public_path('uploads/cvs'), $fileName);
@@ -37,8 +35,6 @@ class JobResponseController extends Controller
 
             $jobResponse = JobResponse::create($validated);
 
-            // Notify the careers inbox, including the job post name. Wrapped so a
-            // mail failure never blocks the application from being saved.
             try {
                 $jobTitle = JobPost::withTrashed()
                     ->whereKey($jobResponse->job_post_id)
@@ -77,13 +73,11 @@ class JobResponseController extends Controller
     public function index(Request $request)
     {
         try {
-
-            // Include soft-deleted responses; eager load the job post for its title.
             $query = JobResponse::withTrashed()
                 ->with('jobPost:id,job_title')
                 ->orderBy('created_at', 'desc');
 
-            // Optional filter: ?is_active=1 / ?is_active=0
+        
             if ($request->filled('is_active')) {
                 $query->where('is_active', $request->boolean('is_active'));
             }

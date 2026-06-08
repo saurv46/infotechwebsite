@@ -14,14 +14,19 @@ use Illuminate\Validation\ValidationException;
 class BlogController extends Controller
 {
 
-public function index()
+public function index(Request $request)
 {
     try {
 
-        // Show everything: active, inactive, and soft-deleted blogs.
-        $blogs = Blog::withTrashed()
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $user = $request->user();
+
+        $query = Blog::withTrashed()
+            ->orderBy('created_at', 'desc');
+        if ($user && $user->role !== 'Admin') {
+            $query->where('author_id', $user->id);
+        }
+
+        $blogs = $query->get();
 
         return response()->json([
             'status' => true,
@@ -87,8 +92,6 @@ public function show($id)
 {
 
     try {
-
-        // withTrashed() so a single blog can be viewed even if soft-deleted.
         $blog = Blog::withTrashed()->findOrFail($id);
 
         return response()->json([
@@ -120,8 +123,6 @@ public function showBySlug($slug)
 {
 
     try {
-
-        // withTrashed() so a single blog can be viewed even if soft-deleted.
         $blog = Blog::withTrashed()->where('blog_slug', $slug)->firstOrFail();
 
 
@@ -155,13 +156,9 @@ public function featured(Request $request)
     try {
 
         $category = $request->query('category');
-
-        // Featured, active, non-deleted blogs, newest first.
         $query = Blog::where('is_featured', true)
             ->where('is_active', true)
             ->orderBy('created_at', 'desc');
-
-        // The single global "main featured" blog (active, non-deleted), if any.
         $mainFeatured = Blog::where('is_main_featured', true)
             ->where('is_active', true)
             ->orderBy('created_at', 'desc')
@@ -296,7 +293,10 @@ public function update(Request $request, $id)
             'blog_category' => 'sometimes|required|string',
             'blog_date' => 'nullable|date',
             'blog_description' => 'sometimes|required',
-            'blog_image' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:10240', // max 10MB
+            // Accept either an uploaded image file or a remote image URL string.
+            'blog_image' => $request->hasFile('blog_image')
+                ? 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:10240' // max 10MB
+                : 'nullable|url|max:2048',
             'blog_tags' => 'nullable|array',
             'blog_tags.*' => 'string',
             'is_active' => 'nullable|boolean',
@@ -396,9 +396,11 @@ public function update(Request $request, $id)
             $blog->restore();
         }
 
-        // Replace the image only when a new file is uploaded; remove the old one.
+        // Replace the image when a new file is uploaded OR a URL string is sent.
+        // A previously uploaded local file is removed first; a remote URL was
+        // never on disk, so there's nothing to delete for it.
         if ($request->hasFile('blog_image')) {
-            if ($blog->blog_image && File::exists(public_path($blog->blog_image))) {
+            if ($blog->blog_image && ! Str::startsWith($blog->blog_image, ['http://', 'https://']) && File::exists(public_path($blog->blog_image))) {
                 File::delete(public_path($blog->blog_image));
             }
 
@@ -406,6 +408,12 @@ public function update(Request $request, $id)
             $fileName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
             $image->move(public_path('uploads/blogs'), $fileName);
             $blog->blog_image = 'uploads/blogs/' . $fileName;
+        } elseif ($request->filled('blog_image')) {
+            if ($blog->blog_image && ! Str::startsWith($blog->blog_image, ['http://', 'https://']) && File::exists(public_path($blog->blog_image))) {
+                File::delete(public_path($blog->blog_image));
+            }
+
+            $blog->blog_image = $request->blog_image;
         }
 
         $blog->save();
@@ -473,9 +481,6 @@ public function destroy($id)
 public function store(Request $request)
 {
     try {
-
-        // Resolve the slug (use the provided one, else derive from the title)
-        // so the uniqueness check runs against the value we'll actually store.
         $request->merge([
             'blog_slug' => $request->blog_slug ?: Str::slug((string) $request->blog_title),
         ]);
@@ -490,7 +495,10 @@ public function store(Request $request)
             'blog_category' => 'required|string',
             'blog_date' => 'nullable|date',
             'blog_description' => 'required',
-            'blog_image' => 'required|image|mimes:jpeg,jpg,png,gif,webp|max:10240', // max 10MB
+            // Accept either an uploaded image file or a remote image URL string.
+            'blog_image' => $request->hasFile('blog_image')
+                ? 'required|image|mimes:jpeg,jpg,png,gif,webp|max:10240' // max 10MB
+                : 'required|url|max:2048',
             'blog_tags' => 'nullable|array',
             'blog_tags.*' => 'string',
             'is_featured' => 'nullable|boolean',
@@ -501,10 +509,15 @@ public function store(Request $request)
 
         $user = $request->user();
 
-        $image = $request->file('blog_image');
-        $fileName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
-        $image->move(public_path('uploads/blogs'), $fileName);
-        $imagePath = 'uploads/blogs/' . $fileName;
+        // A file upload is stored locally; a URL string is saved as-is.
+        if ($request->hasFile('blog_image')) {
+            $image = $request->file('blog_image');
+            $fileName = time() . '_' . Str::random(10) . '.' . $image->getClientOriginalExtension();
+            $image->move(public_path('uploads/blogs'), $fileName);
+            $imagePath = 'uploads/blogs/' . $fileName;
+        } else {
+            $imagePath = $request->blog_image;
+        }
 
         $blog = Blog::create([
             'blog_title' => $request->blog_title,
@@ -512,6 +525,7 @@ public function store(Request $request)
             'blog_category' => $request->blog_category,
             'blog_date' => $request->blog_date ?: now()->toDateString(),
             'blog_author' => $user->name ?? $user->email,
+            'author_id' => $user->id,
             'blog_description' => $request->blog_description,
             'blog_image' => $imagePath,
             // Accept tags as an array and store them as a comma-separated string.
