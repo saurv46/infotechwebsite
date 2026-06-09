@@ -96,6 +96,8 @@ class AuthController extends Controller
             }
 
             $user->password = $validated['new_password'];
+            
+            $user->is_default = false;
             $user->save();
 
             return response()->json([

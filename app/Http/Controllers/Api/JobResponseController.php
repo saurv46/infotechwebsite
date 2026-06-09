@@ -32,6 +32,7 @@ class JobResponseController extends Controller
             $fileName = time() . '_' . Str::random(10) . '.' . $cv->getClientOriginalExtension();
             $cv->move(public_path('uploads/cvs'), $fileName);
             $validated['cv'] = 'uploads/cvs/' . $fileName;
+            $validated['is_active'] = false;
 
             $jobResponse = JobResponse::create($validated);
 

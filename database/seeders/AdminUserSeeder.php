@@ -20,6 +20,7 @@ class AdminUserSeeder extends Seeder
                 'name' => 'Admin',
                 'role' => 'Admin',
                 'password' => 'Password@infotech',
+                'is_default' => 0,
             ]
         );
     }

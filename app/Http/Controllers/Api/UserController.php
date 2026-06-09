@@ -11,6 +11,9 @@ use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
+
+    private const DEFAULT_PASSWORD = 'Welcome@123';
+
     public function store(Request $request)
     {
         try {
@@ -18,12 +21,17 @@ class UserController extends Controller
             $validated = $request->validate([
                 'name'     => 'required|string|max:255',
                 'email'    => 'required|email|max:255|unique:users,email',
-                'password' => 'required|string|min:8',
+                'password' => 'nullable|string|min:8',
                 'role'     => 'nullable|string|max:255',
             ]);
-
-            // Default every new user to the "user" role when none is given.
             $validated['role'] = $validated['role'] ?? 'user';
+
+            if (empty($validated['password'])) {
+                $validated['password'] = self::DEFAULT_PASSWORD;
+                $validated['is_default'] = true;
+            } else {
+                $validated['is_default'] = false;
+            }
 
             $user = User::create($validated);
 
