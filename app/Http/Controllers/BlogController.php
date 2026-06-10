@@ -164,7 +164,7 @@ public function featured(Request $request)
             ->orderBy('created_at', 'desc')
             ->first();
 
-        // ?category=Tech → the single latest featured blog in that category.
+        // category=Tech → the single latest featured blog in that category.
         if ($category) {
             $blog = $query->where('blog_category', $category)->first();
 
