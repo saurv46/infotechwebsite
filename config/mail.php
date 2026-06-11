@@ -124,7 +124,7 @@ return [
     |
     */
 
-    'contact_notify_address' => env('MAIL_CONTACT_NOTIFY_ADDRESS', 'Saurav.Nalawade@infotech.works'),
+    'contact_notify_address' => env('MAIL_CONTACT_NOTIFY_ADDRESS', 'contact@infotech.works'),
 
     /*
     |--------------------------------------------------------------------------
@@ -137,6 +137,5 @@ return [
 
     'careers_notify_address' => env('MAIL_CAREERS_NOTIFY_ADDRESS', 'careers@infotech.works'),
 
-    'careers_notify_address' => env('MAIL_CAREERS_NOTIFY_ADDRESS', 'contact@infotech.works'),
 
 ];
